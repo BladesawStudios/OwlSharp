@@ -1,49 +1,23 @@
-using System.Buffers;
-using System.Diagnostics;
-using CommunityToolkit.HighPerformance.Buffers;
-using Revrs;
 using Revrs.Extensions;
-using SarcLibrary;
 using OwlSharp.Core.IO.Buffers;
 using ZstdSharp;
+using ZsDicSharp;
 
 namespace OwlSharp.Core;
 
 public class TkZstd : IDisposable
 {
     public const uint ZSTD_MAGIC = 0xFD2FB528;
-    private const uint DICT_MAGIC = 0xEC30A437;
-    private const uint SARC_MAGIC = 0x43524153;
-
-    private readonly Decompressor _defaultDecompressor = new();
-    private readonly Dictionary<int, Decompressor> _decompressors = [];
-    private readonly Compressor _defaultCompressor;
-    private readonly Dictionary<int, Compressor> _compressors = [];
-    private int _compressionLevel = 7;
-
-    public TkZstd(in Stream zsDicPack)
-    {
-        _defaultCompressor = new Compressor(CompressionLevel);
-        LoadDictionaries(zsDicPack);
-    }
+    private readonly ZsDic _zsDic;
+    
+    public TkZstd(in Stream zsDicPack) : this(ReadAll(zsDicPack)) { }
 
     public TkZstd(in Span<byte> zsDicPack)
     {
-        _defaultCompressor = new Compressor(CompressionLevel);
-        LoadDictionaries(zsDicPack);
+        _zsDic = zsDicPack.IsEmpty ? ZsDic.Dictionaryless() : ZsDic.FromPack(zsDicPack);
     }
 
-    public int CompressionLevel {
-        get => _compressionLevel;
-        set {
-            _compressionLevel = value;
-            _defaultCompressor.Level = _compressionLevel;
-
-            foreach (var (_, compressor) in _compressors) {
-                compressor.Level = value;
-            }
-        }
-    }
+    public int CompressionLevel { get; set; } = 7;
 
     public byte[] Decompress(ReadOnlySpan<byte> data) => Decompress(data, out _);
 
@@ -87,16 +61,7 @@ public class TkZstd : IDisposable
         }
 
         zsDictionaryId = GetDictionaryId(data);
-        lock (_decompressors) {
-            if (_decompressors.TryGetValue(zsDictionaryId, out var decompressor)) {
-                decompressor.Unwrap(data, dst);
-                return;
-            }
-        }
-
-        lock (_defaultDecompressor) {
-            _defaultDecompressor.Unwrap(data, dst);
-        }
+        _zsDic.Decompress(data, dst);
     }
 
     public RentedBuffer<byte> Compress(ReadOnlySpan<byte> data, int zsDictionaryId = -1)
@@ -108,15 +73,8 @@ public class TkZstd : IDisposable
         return result;
     }
 
-    public int Compress(ReadOnlySpan<byte> data, Span<byte> dst, int zsDictionaryId = -1)
-    {
-        lock (_compressors) {
-            return _compressors.TryGetValue(zsDictionaryId, out var compressor) switch {
-                true => compressor.Wrap(data, dst),
-                false => _defaultCompressor.Wrap(data, dst)
-            };
-        }
-    }
+    public int Compress(ReadOnlySpan<byte> data, Span<byte> dst, int zsDictionaryId = -1) =>
+        _zsDic.Compress(data, dst, zsDictionaryId < 0 ? 0u : (uint)zsDictionaryId, CompressionLevel);
 
     public static bool IsCompressed(ReadOnlySpan<byte> data)
     {
@@ -189,77 +147,16 @@ public class TkZstd : IDisposable
         };
     }
 
-    public void LoadDictionaries(in Stream stream)
+    private static byte[] ReadAll(Stream stream)
     {
-        var size = Convert.ToInt32(stream.Length);
-        using var buffer = SpanOwner<byte>.Allocate(size);
-        var read = stream.Read(buffer.Span);
-        Debug.Assert(size == read);
-        LoadDictionaries(buffer.Span);
+        using MemoryStream buffer = new();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
     }
-
-    public void LoadDictionaries(Span<byte> data)
-    {
-        byte[]? decompressedBuffer = null;
-
-        if (IsCompressed(data)) {
-            var decompressedSize = GetDecompressedSize(data);
-            decompressedBuffer = ArrayPool<byte>.Shared.Rent(decompressedSize);
-            var decompressed = decompressedBuffer.AsSpan()[..decompressedSize];
-            Decompress(data, decompressed, out _);
-            data = decompressed;
-        }
-
-        if (TryLoadDictionary(data)) {
-            return;
-        }
-
-        if (data.Length < 8 || data.Read<uint>() != SARC_MAGIC) {
-            return;
-        }
-
-        RevrsReader reader = new(data);
-        ImmutableSarc sarc = new(ref reader);
-        foreach (var (_, sarcFileData) in sarc) {
-            TryLoadDictionary(sarcFileData);
-        }
-
-        if (decompressedBuffer is not null) {
-            ArrayPool<byte>.Shared.Return(decompressedBuffer);
-        }
-    }
-
-    private bool TryLoadDictionary(ReadOnlySpan<byte> buffer)
-    {
-        if (buffer.Length < 8 || buffer.Read<uint>() != DICT_MAGIC) {
-            return false;
-        }
-
-        Decompressor decompressor = new();
-        decompressor.LoadDictionary(buffer);
-        lock (_decompressors) {
-            _decompressors[buffer[4..8].Read<int>()] = decompressor;
-        }
-
-        Compressor compressor = new(CompressionLevel);
-        compressor.LoadDictionary(buffer);
-        _compressors[buffer[4..8].Read<int>()] = compressor;
-
-        return true;
-    }
-
+    
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        
-        _defaultDecompressor.Dispose();
-        foreach (var (_, decompressor) in _decompressors) {
-            decompressor.Dispose();
-        }
-        
-        _defaultCompressor.Dispose();
-        foreach (var (_, compressor) in _compressors) {
-            compressor.Dispose();
-        }
+        _zsDic.Dispose();
     }
 }
