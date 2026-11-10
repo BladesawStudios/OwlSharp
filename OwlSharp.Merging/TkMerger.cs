@@ -354,8 +354,8 @@ public sealed class TkMerger
         using var output = _output.OpenWrite(Path.Combine("romfs", relativePath));
 
         if (!TkResourceSizeCollector.RequiresDataForCalculation(relativePath)) {
-            var size = TkZstd.IsCompressed(input)
-                ? TkZstd.GetDecompressedSize(input)
+            var size = OtZstd.IsCompressed(input)
+                ? OtZstd.GetDecompressedSize(input)
                 : (int)input.Length;
             _resourceSizeCollector.Collect(size, relativePath, [], changelog.RuntimeResourceSizeOverride);
             input.CopyTo(output);
@@ -366,14 +366,14 @@ public sealed class TkMerger
         using var buffer = RentedBuffer<byte>.Allocate(input);
         var raw = buffer.Span;
 
-        if (!TkZstd.IsCompressed(raw)) {
+        if (!OtZstd.IsCompressed(raw)) {
             _resourceSizeCollector.Collect(raw.Length, relativePath, raw, changelog.RuntimeResourceSizeOverride);
             output.Write(raw);
             input.Dispose();
             return;
         }
 
-        using var decompressed = SpanOwner<byte>.Allocate(TkZstd.GetDecompressedSize(raw));
+        using var decompressed = SpanOwner<byte>.Allocate(OtZstd.GetDecompressedSize(raw));
         var data = decompressed.Span;
         _rom.Zstd.Decompress(raw, data);
         _resourceSizeCollector.Collect(data.Length, relativePath, data, changelog.RuntimeResourceSizeOverride);

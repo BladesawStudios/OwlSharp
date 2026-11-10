@@ -5,14 +5,14 @@ using ZsDicSharp;
 
 namespace OwlSharp.Core;
 
-public class TkZstd : IDisposable
+public class OtZstd : IDisposable
 {
     public const uint ZSTD_MAGIC = 0xFD2FB528;
     private readonly ZsDic _zsDic;
     
-    public TkZstd(in Stream zsDicPack) : this(ReadAll(zsDicPack)) { }
+    public OtZstd(in Stream zsDicPack) : this(ReadAll(zsDicPack)) { }
 
-    public TkZstd(in Span<byte> zsDicPack)
+    public OtZstd(in Span<byte> zsDicPack)
     {
         _zsDic = zsDicPack.IsEmpty ? ZsDic.Dictionaryless() : ZsDic.FromPack(zsDicPack);
     }

@@ -154,10 +154,10 @@ public class TkChangelogBuilder(
         using var raw = RentedBuffer<byte>.Allocate(content);
         _ = content.Read(raw.Span);
 
-        var isZsCompressed = TkZstd.IsCompressed(raw.Span);
+        var isZsCompressed = OtZstd.IsCompressed(raw.Span);
 
         using var decompressed = isZsCompressed
-            ? RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(raw.Span))
+            ? RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(raw.Span))
             : default;
 
         var zsDictionaryId = -1;
@@ -226,13 +226,13 @@ public class TkChangelogBuilder(
 
             using var content = _baseModSource.OpenRead(entry);
             using var raw = RentedBuffer<byte>.Allocate(content);
-            if (!TkZstd.IsCompressed(raw.Span)) {
+            if (!OtZstd.IsCompressed(raw.Span)) {
                 var copy = RentedBuffer<byte>.Allocate(raw.Span.Length);
                 raw.Span.CopyTo(copy.Span);
                 return copy;
             }
 
-            var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(raw.Span));
+            var decompressed = RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(raw.Span));
             _tk.Zstd.Decompress(raw.Span, decompressed.Span);
             return decompressed;
         }

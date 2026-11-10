@@ -79,7 +79,7 @@ public sealed class TkPackFileLookup(Stream pkcache, Stream? precompiled = null)
         
         using var compressed = RentedBuffer<byte>.Allocate(pkcache);
         using var buffer = RentedBuffer<byte>.Allocate(
-            TkZstd.GetDecompressedSize(compressed.Span)
+            OtZstd.GetDecompressedSize(compressed.Span)
         );
         
         _zstd.Unwrap(compressed.Span, buffer.Span);

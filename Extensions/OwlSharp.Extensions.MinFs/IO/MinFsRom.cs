@@ -19,7 +19,7 @@ public sealed class MinFsRom : ITkRom
 
     public string NsoBinaryId { get; }
 
-    public TkZstd Zstd { get; }
+    public OtZstd Zstd { get; }
 
     public IDictionary<string, string> AddressTable { get; }
 
@@ -45,7 +45,7 @@ public sealed class MinFsRom : ITkRom
         }
 
         using (var zsDicFs = blockResourceProvider["/Pack/ZsDic.pack.zs"]) {
-            Zstd = new TkZstd(zsDicFs.Span);
+            Zstd = new OtZstd(zsDicFs.Span);
         }
 
         using (var addressTableBuffer = blockResourceProvider[$"/System/AddressTable/Product.{GameVersion}.Nin_NX_NVN.atbl.byml.zs"]) {
@@ -84,12 +84,12 @@ public sealed class MinFsRom : ITkRom
         isFoundMissing = false;
         ReadOnlySpan<byte> raw = result.Span;
         
-        if (!TkZstd.IsCompressed(raw)) {
+        if (!OtZstd.IsCompressed(raw)) {
             return result;
         }
 
         try {
-            var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(raw));
+            var decompressed = RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(raw));
             Zstd.Decompress(raw, decompressed.Span);
             return decompressed;
         }

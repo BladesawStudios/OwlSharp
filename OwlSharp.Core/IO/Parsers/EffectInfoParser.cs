@@ -6,9 +6,9 @@ namespace OwlSharp.Core.IO.Parsers;
 
 public static class EffectInfoParser
 {
-    public static Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> ParseFileEntry(Span<byte> src, TkZstd zstd)
+    public static Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> ParseFileEntry(Span<byte> src, OtZstd zstd)
     {
-        using var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(src));
+        using var decompressed = RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(src));
         zstd.Decompress(src, decompressed.Span);
 
         var table = Byml.FromBinary(decompressed.Span)

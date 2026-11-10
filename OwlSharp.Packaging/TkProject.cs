@@ -66,7 +66,7 @@ public partial class TkProject(string folderPath) : ObservableObject
         Rstb table;
         using (var input = File.OpenRead(resourceSizeTablePath)) {
             using var raw = RentedBuffer<byte>.Allocate(input);
-            if (TkZstd.IsCompressed(raw.Span)) {
+            if (OtZstd.IsCompressed(raw.Span)) {
                 table = Rstb.FromBinary(rom.Zstd.Decompress(raw.Span));
             }
             else {

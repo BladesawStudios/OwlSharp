@@ -36,7 +36,7 @@ public sealed class ExtractedTkRom : ITkRom
             }
             
             using Stream zsDicFs = File.OpenRead(zsDicPath);
-            Zstd = new TkZstd(zsDicFs);
+            Zstd = new OtZstd(zsDicFs);
         }
 
         {
@@ -110,7 +110,7 @@ public sealed class ExtractedTkRom : ITkRom
 
     public string NsoBinaryId { get; }
 
-    public TkZstd Zstd { get; }
+    public OtZstd Zstd { get; }
 
     public IDictionary<string, string> AddressTable { get; }
 
@@ -138,12 +138,12 @@ public sealed class ExtractedTkRom : ITkRom
         var raw = RentedBuffer<byte>.Allocate(fs);
         var rawBuffer = raw.Span;
 
-        if (!TkZstd.IsCompressed(rawBuffer)) {
+        if (!OtZstd.IsCompressed(rawBuffer)) {
             return raw;
         }
 
         try {
-            var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(rawBuffer));
+            var decompressed = RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(rawBuffer));
             Zstd.Decompress(rawBuffer, decompressed.Span);
             return decompressed;
         }

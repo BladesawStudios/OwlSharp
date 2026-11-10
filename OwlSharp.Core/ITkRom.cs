@@ -15,7 +15,7 @@ public interface ITkRom : IDisposable
 
     string NsoBinaryId { get; }
 
-    TkZstd Zstd { get; }
+    OtZstd Zstd { get; }
 
     IDictionary<string, string> AddressTable { get; }
 

@@ -6,9 +6,9 @@ namespace OwlSharp.Core.IO.Parsers;
 
 public static class AddressTableParser
 {
-    public static FrozenDictionary<string, string> ParseAddressTable(in ReadOnlySpan<byte> src, TkZstd zstd)
+    public static FrozenDictionary<string, string> ParseAddressTable(in ReadOnlySpan<byte> src, OtZstd zstd)
     {
-        using var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(src));
+        using var decompressed = RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(src));
         zstd.Decompress(src, decompressed.Span);
 
         return Byml.FromBinary(decompressed.Span)

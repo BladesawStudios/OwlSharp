@@ -12,7 +12,7 @@ public class NullTkRom : ITkRom
 
     public string NsoBinaryId => string.Empty;
 
-    public TkZstd Zstd { get; } = new(new MemoryStream());
+    public OtZstd Zstd { get; } = new(new MemoryStream());
 
     public IDictionary<string, string> AddressTable => new Dictionary<string, string>();
 

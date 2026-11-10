@@ -5,9 +5,9 @@ namespace OwlSharp.Core.IO.Parsers;
 
 public static class EventFlowFileEntryParser
 {
-    public static Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> ParseFileEntry(Span<byte> src, TkZstd zstd)
+    public static Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> ParseFileEntry(Span<byte> src, OtZstd zstd)
     {
-        using var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(src));
+        using var decompressed = RentedBuffer<byte>.Allocate(OtZstd.GetDecompressedSize(src));
         zstd.Decompress(src, decompressed.Span);
         
         return Byml.FromBinary(decompressed.Span)
