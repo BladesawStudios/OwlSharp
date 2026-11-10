@@ -21,6 +21,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\lib\ZsDicSharp\src\ZsDicSharp\ZsDicSharp.csproj" />
+      <ProjectReference Include="..\lib\SarcSharp\src\SarcSharp\SarcSharp.csproj" />
     </ItemGroup>
 
 </Project>
