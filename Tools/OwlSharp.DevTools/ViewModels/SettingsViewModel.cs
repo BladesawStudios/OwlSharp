@@ -2,10 +2,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using LibHac.Common.Keys;
 using Microsoft.Extensions.Logging;
 using OwlSharp.Core;
-using OwlSharp.DevTools.Helpers.Ryujinx;
 using Avalonia.Platform.Storage;
 
 namespace OwlSharp.DevTools.ViewModels;
@@ -19,25 +17,10 @@ public partial class SettingsPageViewModel : ObservableObject
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwlSharp.DevTools", "Config.json");
     
     public static readonly SettingsPageViewModel Shared = Load();
-
-    [ObservableProperty]
-    private string? _keysFolderPath;
-
-    [ObservableProperty]
-    private string? _baseGameFilePath;
-
-    [ObservableProperty]
-    private string? _gameUpdateFilePath;
-
+    
     [ObservableProperty]
     private string? _gameDumpFolderPath;
-
-    [ObservableProperty]
-    private string? _sdCardRootPath;
-
-    [ObservableProperty]
-    private string? _splitFilesPath;
-
+    
     public static SettingsPageViewModel Load()
     {
         SettingsPageViewModel? result;
@@ -64,28 +47,6 @@ public partial class SettingsPageViewModel : ObservableObject
 
         result.GameDumpFolderPath = tkConfig.GamePath;
         return result;
-    }
-
-    [RelayCommand]
-    [property: JsonIgnore]
-    private void LoadFromRyujinx()
-    {
-        if (RyujinxHelper.GetKeys(out string keysFolderPath) is not KeySet keys) {
-            return;
-        }
-
-        KeysFolderPath = keysFolderPath;
-
-        List<(string FilePath, string)> foundTotkFiles = RyujinxHelper.GetTotkFiles(keys)
-            .OrderBy(x => x.Version)
-            .ToList();
-
-        foreach ((string filePath, string version) in foundTotkFiles) {
-            TkLog.Instance.LogInformation("Found '{FilePath}' v{Version}", filePath, version);
-        }
-
-        BaseGameFilePath = foundTotkFiles[0].FilePath;
-        GameUpdateFilePath = foundTotkFiles[^1].FilePath;
     }
 
     [RelayCommand]

@@ -1,31 +1,23 @@
+
 using OwlSharp.Core;
 using OwlSharp.Core.Common;
+using OwlSharp.Core.IO;
 using OwlSharp.Core.IO.Caching;
 using OwlSharp.Data.Embedded;
-using OwlSharp.Extensions.LibHac;
 
 namespace OwlSharp.Debug;
 
-public sealed class DebugRomProvider : Singleton<DebugRomProvider>, ITkRomProvider, IDisposable
-{
+public sealed class DebugRomProvider : Singleton<DebugRomProvider>, ITkRomProvider, IDisposable {
+    private const string GAME_DUMP_PATH = @"E:\Nintendo Stuff\ROMS\Switch\Tears Dump";
+    
     private TkPackFileLookup? _packFileLookup;
 
     public ITkRom GetRom()
     {
-        // return new ExtractedTkRom(@"F:\Games\RomFS\Totk\1.2.1",
-        //     TkChecksums.FromStream(TkEmbeddedDataSource.GetChecksumsBin()),
-        //     new TkPackFileLookup(TkEmbeddedDataSource.GetPackFileLookup())
-        // );
-
         _packFileLookup ??= new TkPackFileLookup(TkEmbeddedDataSource.GetPackFileLookup());
 
-        return TkExtensibleRomProviderBuilder
-            .Create(TkChecksums.FromStream(TkEmbeddedDataSource.GetChecksumsBin()), _packFileLookup)
-            .WithKeysFolder(@"F:\TOTK\SDCardTest\switch")
-            .WithPackagedBaseGame([@"F:\TOTK\SDCardTest\TOTKSPLIT"])
-            .WithSdCard(@"F:\TOTK\SDCardTest")
-            .Build()
-            .GetRom();
+        return new ExtractedTkRom(GAME_DUMP_PATH, TkChecksums.FromStream(TkEmbeddedDataSource.GetChecksumsBin()),
+            _packFileLookup);
     }
 
     public void Dispose()

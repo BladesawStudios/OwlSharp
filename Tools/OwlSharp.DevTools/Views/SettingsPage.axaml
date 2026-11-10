@@ -10,29 +10,13 @@
              x:Class="OwlSharp.DevTools.Views.SettingsPage">
     <Grid Margin="20" RowDefinitions="Auto,*">
         <StackPanel Spacing="15" Orientation="Horizontal" Margin="0,0,0,15">
-            <Button Content="Load from Ryujinx" Command="{Binding LoadFromRyujinxCommand}" />
             <Button Content="Save" Command="{Binding SaveCommand}" />
         </StackPanel>
-        
+
         <StackPanel Grid.Row="1" Spacing="15">
-            <TextBox Watermark="Keys Folder Path"
-                     UseFloatingWatermark="True"
-                     Text="{Binding KeysFolderPath}" />
-            <TextBox Watermark="Base Game File Path (XCI/NSP)"
-                     UseFloatingWatermark="True"
-                     Text="{Binding BaseGameFilePath}" />
-            <TextBox Watermark="Game Update File Path (NSP)"
-                     UseFloatingWatermark="True"
-                     Text="{Binding GameUpdateFilePath}" />
             <TextBox Watermark="Game Dump Folder Path (romfs)"
                      UseFloatingWatermark="True"
                      Text="{Binding GameDumpFolderPath}" />
-            <TextBox Watermark="SD Card Root Path"
-                     UseFloatingWatermark="True"
-                     Text="{Binding SdCardRootPath}" />
-            <TextBox Watermark="Split Files Path"
-                     UseFloatingWatermark="True"
-                     Text="{Binding SplitFilesPath}" />
         </StackPanel>
     </Grid>
 </UserControl>

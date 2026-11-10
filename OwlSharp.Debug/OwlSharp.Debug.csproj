@@ -8,7 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Extensions\OwlSharp.Extensions.LibHac\OwlSharp.Extensions.LibHac.csproj" />
       <ProjectReference Include="..\OwlSharp.Data.Embedded\OwlSharp.Data.Embedded.csproj" />
       <ProjectReference Include="..\OwlSharp.Merging\OwlSharp.Merging.csproj" />
       <ProjectReference Include="..\OwlSharp\OwlSharp.csproj" />
