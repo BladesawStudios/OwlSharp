@@ -17,7 +17,10 @@
       <PackageReference Include="System.IO.Hashing" Version="10.0.3" />
       <PackageReference Include="Tkmm.BymlLibrary" Version="1.2.3" />
       <PackageReference Include="Ulid" Version="1.4.1" />
-      <PackageReference Include="ZstdSharp.Port" Version="0.8.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\lib\ZstdSharp\src\ZstdSharp\ZstdSharp.csproj" />
     </ItemGroup>
 
 </Project>

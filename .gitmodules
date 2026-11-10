@@ -1,0 +1,3 @@
+[submodule "lib/ZstdSharp"]
+	path = lib/ZstdSharp
+	url = https://github.com/BladesawStudios/ZstdSharp.git
