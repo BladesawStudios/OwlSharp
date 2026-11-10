@@ -1,14 +1,14 @@
-# Contributing to TkSharp
+# Contributing to OwlSharp
 
-Thank you for your interest in contributing to TkSharp.
+Thank you for your interest in contributing to OwlSharp.
 
 For questions or discussion before opening a pull request, please join the [Discord](https://tkmm.org/discord).
 
 ## Scope
 
-TkSharp handles building changelogs for mods, merging, reading game dumps, and GameBanana API calls.
+OwlSharp handles building changelogs for mods, merging, reading game dumps, and GameBanana API calls.
 
-File parsing and serializing logic are out of scope for TkSharp. That work should live in external libraries and be abstracted behind interfaces.
+File parsing and serializing logic are out of scope for OwlSharp. That work should live in external libraries and be abstracted behind interfaces.
 
 Any user facing element (front-end / UI) belongs in [TKMM](https://github.com/TKMM-Team/Tkmm).
 

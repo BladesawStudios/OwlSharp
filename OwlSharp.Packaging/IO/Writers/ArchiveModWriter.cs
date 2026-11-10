@@ -1,0 +1,35 @@
+using System.IO.Compression;
+using OwlSharp.Core;
+using OwlSharp.Core.Extensions;
+
+namespace OwlSharp.Packaging.IO.Writers;
+
+public sealed class ArchiveModWriter : ITkModWriter
+{
+    private string _root = string.Empty;
+    private readonly Dictionary<string, MemoryStream> _entries = [];
+    
+    public Stream OpenWrite(string filePath)
+    {
+        return _entries[Path.Combine(_root, filePath)] = new MemoryStream();
+    }
+
+    public void Compile(Stream output)
+    {
+        using ZipArchive writer = new(output, ZipArchiveMode.Create, leaveOpen: true);
+
+        foreach (var (fileName, ms) in _entries.OrderBy(entry => entry.Key)) {
+            using (ms) {
+                using var entry = writer.CreateEntry(fileName.Replace('\\', '/')).Open();
+                entry.Write(ms.GetSpan());
+            }
+        }
+
+        _entries.Clear();
+    }
+
+    public void SetRelativeFolder(string rootFolderPath)
+    {
+        _root = rootFolderPath;
+    }
+}

@@ -16,7 +16,7 @@ jobs:
       fail-fast: true
       matrix:
         package:
-          - project: TkSharp
+          - project: OwlSharp
             authors: ArchLeaders
             description: Utility library for mod merging and management.
             readme: ./Readme.md
@@ -24,7 +24,7 @@ jobs:
             repo: https://github.com/TKMM-Team/TkSharp
             spdx: MIT
             tags: totk;zelda;zeldamods
-          - project: TkSharp.Core
+          - project: OwlSharp.Core
             authors: ArchLeaders
             description: Utility library for mod merging and management.
             readme: ./Readme.md
@@ -32,7 +32,7 @@ jobs:
             repo: https://github.com/TKMM-Team/TkSharp
             spdx: MIT
             tags: totk;zelda;zeldamods
-          - project: TkSharp.Data.Embedded
+          - project: OwlSharp.Data.Embedded
             authors: ArchLeaders
             description: Utility library for mod merging and management.
             readme: ./Readme.md
@@ -40,7 +40,7 @@ jobs:
             repo: https://github.com/TKMM-Team/TkSharp
             spdx: MIT
             tags: totk;zelda;zeldamods
-          - project: TkSharp.Merging
+          - project: OwlSharp.Merging
             authors: ArchLeaders
             description: Utility library for mod merging and management.
             readme: ./Readme.md

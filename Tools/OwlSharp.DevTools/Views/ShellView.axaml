@@ -1,0 +1,36 @@
+<windowing:AppWindow xmlns="https://github.com/avaloniaui"
+                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                     xmlns:vm="using:OwlSharp.DevTools.ViewModels"
+                     xmlns:windowing="using:FluentAvalonia.UI.Windowing"
+                     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                     x:Class="OwlSharp.DevTools.Views.ShellView"
+                     x:DataType="vm:ShellViewModel"
+                     xmlns:core="using:OwlSharp.DevTools"
+                     xmlns:tk="using:OwlSharp.Core.Models"
+                     xmlns:ui="using:FluentAvalonia.UI.Controls"
+                     Width="650"
+                     Height="450"
+                     Title="OwlSharp Dev Tools">
+    <windowing:AppWindow.Resources>
+        <ui:SymbolIconSource x:Key="MergeIcon" Symbol="ViewAll" />
+        <ui:SymbolIconSource x:Key="PackageIcon" Symbol="CodeHTML" />
+        <ui:SymbolIconSource x:Key="CogIcon" Symbol="Settings" />
+    </windowing:AppWindow.Resources>
+    <ui:NavigationView Content="{Binding PageContent}" IsSettingsVisible="False" SelectedItem="{Binding CurrentPageItem}">
+        <ui:NavigationView.MenuItems>
+            <ui:NavigationViewItem IconSource="{StaticResource MergeIcon}"
+                                   Content="Merging"
+                                   IsSelected="True" />
+            <ui:NavigationViewItem IconSource="{StaticResource PackageIcon}"
+                                   Content="Studio"
+                                   Tag="PackagingPage" />
+        </ui:NavigationView.MenuItems>
+        <ui:NavigationView.FooterMenuItems>
+            <ui:NavigationViewItem IconSource="{StaticResource CogIcon}"
+                                   Content="Settings"
+                                   Tag="SettingsPage" />
+        </ui:NavigationView.FooterMenuItems>
+    </ui:NavigationView>
+</windowing:AppWindow>

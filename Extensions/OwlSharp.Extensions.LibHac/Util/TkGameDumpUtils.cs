@@ -1,0 +1,33 @@
+using CommunityToolkit.HighPerformance.Buffers;
+using OwlSharp.Core.IO.Parsers;
+
+namespace OwlSharp.Extensions.LibHac.Util;
+
+public static class TkGameDumpUtils
+{
+    private const string BASE_GAME_NSO_ID = "082ce09b06e33a123cb1e2770f5f9147709033db";
+    
+    public static bool CheckGameDump(string gameDumpFolder, out bool hasUpdate)
+        => CheckGameDump(gameDumpFolder, out hasUpdate, out _);
+    
+    public static bool CheckGameDump(string gameDumpFolder, out bool hasUpdate, out int version)
+    {
+        version = 0;
+        hasUpdate = false;
+        
+        var regionLangMaskFilePath = Path.Combine(gameDumpFolder, "System", "RegionLangMask.txt");
+        if (!File.Exists(regionLangMaskFilePath)) {
+            return false;
+        }
+        
+        using var fs = File.OpenRead(regionLangMaskFilePath);
+        var size = (int)fs.Length;
+        
+        using var buffer = SpanOwner<byte>.Allocate(size);
+        fs.ReadExactly(buffer.Span);
+
+        version = RegionLangMaskParser.ParseVersion(buffer.Span, out var nsoBinaryId);
+        hasUpdate = nsoBinaryId != BASE_GAME_NSO_ID; 
+        return true;
+    }
+}

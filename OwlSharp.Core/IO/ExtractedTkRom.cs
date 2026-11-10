@@ -1,0 +1,169 @@
+using OwlSharp.Core.Exceptions;
+using OwlSharp.Core.IO.Buffers;
+using OwlSharp.Core.IO.Caching;
+using OwlSharp.Core.IO.Parsers;
+
+namespace OwlSharp.Core.IO;
+
+public sealed class ExtractedTkRom : ITkRom
+{
+    private readonly string _gamePath;
+    private readonly TkChecksums _checksums;
+    private readonly TkPackFileLookup _packFileLookup;
+
+    public ExtractedTkRom(string gamePath, TkChecksums checksums, TkPackFileLookup packFileLookup)
+    {
+        _gamePath = gamePath;
+        _checksums = checksums;
+        _packFileLookup = packFileLookup;
+
+        {
+            var regionLangMaskPath = Path.Combine(gamePath, "System", "RegionLangMask.txt");
+            if (!File.Exists(regionLangMaskPath)) {
+                throw new GameRomException("RegionLangMask file not found.");
+            }
+
+            using Stream regionLangMaskFs = File.OpenRead(regionLangMaskPath);
+            using var regionLangMask = RentedBuffer<byte>.Allocate(regionLangMaskFs);
+            GameVersion = RegionLangMaskParser.ParseVersion(regionLangMask.Span, out var nsoBinaryId);
+            NsoBinaryId = nsoBinaryId;
+        }
+
+        {
+            var zsDicPath = Path.Combine(gamePath, "Pack", "ZsDic.pack.zs");
+            if (!File.Exists(zsDicPath)) {
+                throw new GameRomException("ZsDic file not found.");
+            }
+            
+            using Stream zsDicFs = File.OpenRead(zsDicPath);
+            Zstd = new TkZstd(zsDicFs);
+        }
+
+        {
+            var addressTablePath = Path.Combine(gamePath, "System", "AddressTable", $"Product.{GameVersion}.Nin_NX_NVN.atbl.byml.zs");
+            if (!File.Exists(addressTablePath)) {
+                throw new GameRomException("System address table file not found.");
+            }
+            
+            using Stream addressTableFs = File.OpenRead(addressTablePath);
+            using var addressTableBuffer = RentedBuffer<byte>.Allocate(addressTableFs);
+            AddressTable = AddressTableParser.ParseAddressTable(addressTableBuffer.Span, Zstd);
+        }
+
+        {
+            var eventFlowFileEntryPath = Path.Combine(gamePath, $"{AddressTable["Event/EventFlow/EventFlowFileEntry.Product.byml"]}.zs");
+            if (!File.Exists(eventFlowFileEntryPath)) {
+                throw new GameRomException("Event flow file entry file not found.");
+            }
+            
+            using Stream eventFlowFileEntryFs = File.OpenRead(eventFlowFileEntryPath);
+            using var eventFlowFileEntryBuffer = RentedBuffer<byte>.Allocate(eventFlowFileEntryFs);
+            EventFlowVersions = EventFlowFileEntryParser.ParseFileEntry(eventFlowFileEntryBuffer.Span, Zstd);
+        }
+
+        {
+            var effectInfoPath = Path.Combine(gamePath, $"{AddressTable["Effect/EffectFileInfo.Product.Nin_NX_NVN.byml"]}.zs");
+            if (!File.Exists(effectInfoPath)) {
+                throw new GameRomException("Effect info file entry file not found.");
+            }
+            
+            using Stream effectInfoFs = File.OpenRead(effectInfoPath);
+            using var effectInfoBuffer = RentedBuffer<byte>.Allocate(effectInfoFs);
+            EffectVersions = EffectInfoParser.ParseFileEntry(effectInfoBuffer.Span, Zstd);
+        }
+
+        {
+            var ainbFileEntryPath = Path.Combine(gamePath, $"{AddressTable["AI/FileEntry/FileEntry.Product.byml"]}.zs");
+            if (!File.Exists(ainbFileEntryPath)) {
+                throw new GameRomException("AI file entry file not found.");
+            }
+            
+            using Stream ainbFileEntryFs = File.OpenRead(ainbFileEntryPath);
+            using var ainbFileEntryBuffer = RentedBuffer<byte>.Allocate(ainbFileEntryFs);
+            AiVersions = StandardFileEntryParser.ParseStandardFileEntry(ainbFileEntryBuffer.Span, Zstd);
+        }
+
+        {
+            var logicFileEntryPath = Path.Combine(gamePath, $"{AddressTable["Logic/FileEntry/FileEntry.Product.byml"]}.zs");
+            if (!File.Exists(logicFileEntryPath)) {
+                throw new GameRomException("Logic file entry file not found.");
+            }
+            
+            using Stream logicFileEntryFs = File.OpenRead(logicFileEntryPath);
+            using var logicFileEntryBuffer = RentedBuffer<byte>.Allocate(logicFileEntryFs);
+            LogicVersions = StandardFileEntryParser.ParseStandardFileEntry(logicFileEntryBuffer.Span, Zstd);
+        }
+
+        {
+            var sequenceFileEntryPath = Path.Combine(gamePath, $"{AddressTable["Sequence/FileEntry/FileEntry.Product.byml"]}.zs");
+            if (!File.Exists(sequenceFileEntryPath)) {
+                throw new GameRomException("Sequence file entry file not found.");
+            }
+            
+            using Stream sequenceFileEntryFs = File.OpenRead(sequenceFileEntryPath);
+            using var sequenceFileEntryBuffer = RentedBuffer<byte>.Allocate(sequenceFileEntryFs);
+            SequenceVersions = StandardFileEntryParser.ParseStandardFileEntry(sequenceFileEntryBuffer.Span, Zstd);
+        }
+    }
+    
+    public int GameVersion { get; }
+
+    public string NsoBinaryId { get; }
+
+    public TkZstd Zstd { get; }
+
+    public IDictionary<string, string> AddressTable { get; }
+
+    public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> EventFlowVersions { get; }
+
+    public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> EffectVersions { get; }
+
+    public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> AiVersions { get; }
+
+    public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> LogicVersions { get; }
+
+    public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> SequenceVersions { get; }
+
+    public RentedBuffer<byte> GetVanilla(string relativeFilePath, out bool isFoundMissing)
+    {
+        isFoundMissing = false;
+        var absolute = Path.Combine(_gamePath, relativeFilePath);
+        if (!File.Exists(absolute)) {
+            // Nested files have the relative and canonical
+            // file paths, so this is a valid call
+            return _packFileLookup.GetNested(relativeFilePath, this, out isFoundMissing);
+        }
+        
+        using Stream fs = File.OpenRead(absolute);
+        var raw = RentedBuffer<byte>.Allocate(fs);
+        var rawBuffer = raw.Span;
+
+        if (!TkZstd.IsCompressed(rawBuffer)) {
+            return raw;
+        }
+
+        try {
+            var decompressed = RentedBuffer<byte>.Allocate(TkZstd.GetDecompressedSize(rawBuffer));
+            Zstd.Decompress(rawBuffer, decompressed.Span);
+            return decompressed;
+        }
+        finally {
+            raw.Dispose();
+        }
+    }
+
+    public bool IsVanilla(ReadOnlySpan<char> canonical, Span<byte> src, int fileVersion)
+    {
+        return _checksums.IsFileVanilla(canonical, src, fileVersion);
+    }
+
+    public bool IsVanillaAnyVersion(ReadOnlySpan<char> canonical, Span<byte> src)
+    {
+        return _checksums.IsFileVanillaAnyVersion(canonical, src);
+    }
+
+    public void Dispose()
+    {
+        Zstd.Dispose();
+    }
+}
