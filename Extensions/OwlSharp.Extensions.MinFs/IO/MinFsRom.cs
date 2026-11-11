@@ -12,7 +12,7 @@ namespace OwlSharp.Extensions.MinFs.IO;
 public sealed class MinFsRom : ITkRom
 {
     private readonly TkChecksums _checksums;
-    private readonly TkPackFileLookup _packFileLookup;
+    private readonly OtPackFileLookup _packFileLookup;
     private readonly BlockResourceProvider _blockResourceProvider;
 
     public int GameVersion { get; }
@@ -33,7 +33,7 @@ public sealed class MinFsRom : ITkRom
 
     public Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> SequenceVersions { get; }
 
-    public MinFsRom(TkChecksums checksums, TkPackFileLookup packFileLookup, BlockResourceProvider blockResourceProvider)
+    public MinFsRom(TkChecksums checksums, OtPackFileLookup packFileLookup, BlockResourceProvider blockResourceProvider)
     {
         _checksums = checksums;
         _packFileLookup = packFileLookup;
@@ -111,6 +111,5 @@ public sealed class MinFsRom : ITkRom
     
     public void Dispose()
     {
-        _packFileLookup.Dispose();
     }
 }

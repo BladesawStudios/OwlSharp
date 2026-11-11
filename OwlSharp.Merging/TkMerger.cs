@@ -29,7 +29,7 @@ public sealed class TkMerger
     private readonly SarcMerger _sarcMerger;
     private readonly PackMerger _packMerger;
     private readonly string? _ipsOutputFolderPath;
-    private readonly TkPackFileCollector _packFileCollector;
+    private readonly OtPackFileCollector _packFileCollector;
     private readonly BfresMcMerger _bfresMcMerger;
     private readonly BntxMerger _bntxMerger;
     private readonly Dictionary<TkChangelog, Rstb> _resourceSizeOverrides = [];
@@ -43,7 +43,7 @@ public sealed class TkMerger
         _resourceSizeCollector = new TkResourceSizeCollector(output, rom);
         _sarcMerger = new SarcMerger(this, _resourceSizeCollector);
         _ipsOutputFolderPath = ipsOutputFolderPath;
-        _packFileCollector = new TkPackFileCollector(this, _resourceSizeCollector, _rom);
+        _packFileCollector = new OtPackFileCollector(this, _resourceSizeCollector, _rom);
         _packMerger = new PackMerger(_packFileCollector);
         _bfresMcMerger = new BfresMcMerger(rom);
         _bntxMerger = new BntxMerger(rom);

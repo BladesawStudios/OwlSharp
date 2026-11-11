@@ -10,11 +10,11 @@ namespace OwlSharp.Debug;
 public sealed class DebugRomProvider : Singleton<DebugRomProvider>, ITkRomProvider, IDisposable {
     private const string GAME_DUMP_PATH = @"E:\Nintendo Stuff\ROMS\Switch\Tears Dump";
     
-    private TkPackFileLookup? _packFileLookup;
+    private OtPackFileLookup? _packFileLookup;
 
     public ITkRom GetRom()
     {
-        _packFileLookup ??= new TkPackFileLookup(TkEmbeddedDataSource.GetPackFileLookup());
+        _packFileLookup ??= new OtPackFileLookup(TkEmbeddedDataSource.GetPackFileLookup());
 
         return new ExtractedTkRom(GAME_DUMP_PATH, TkChecksums.FromStream(TkEmbeddedDataSource.GetChecksumsBin()),
             _packFileLookup);
@@ -22,7 +22,6 @@ public sealed class DebugRomProvider : Singleton<DebugRomProvider>, ITkRomProvid
 
     public void Dispose()
     {
-        _packFileLookup?.Dispose();
         _packFileLookup = null;
     }
 }

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using SarcLibrary;
+using SarcSharp;
 using OwlSharp.Core;
 using OwlSharp.Core.Extensions;
 using OwlSharp.Core.IO.Buffers;
@@ -10,10 +10,10 @@ using OwlSharp.Merging.ResourceSizeTable;
 
 namespace OwlSharp.Merging.PackFile;
 
-public sealed class TkPackFileCollector(TkMerger merger, TkResourceSizeCollector resourceSizeCollector, ITkRom rom)
+public sealed class OtPackFileCollector(TkMerger merger, TkResourceSizeCollector resourceSizeCollector, ITkRom rom)
 {
     private readonly ConcurrentBag<PackFileEntry> _cache = [];
-    private readonly ConcurrentDictionary<string, Sarc> _trackedArchives = [];
+    private readonly ConcurrentDictionary<string, SarcFile> _trackedArchives = [];
     private readonly TkMerger _merger = merger;
     private const string AI_GLOBAL_PACK_CANONICAL = "Pack/AI.Global.Product.pack";
     public int? AiGlobalFileCount { get; private set; }
@@ -30,7 +30,7 @@ public sealed class TkPackFileCollector(TkMerger merger, TkResourceSizeCollector
             }
 
             using var vanilla = rom.GetVanilla(relativePath);
-            var sarc = vanilla.IsEmpty ? new Sarc() : Sarc.FromBinary(vanilla.Segment);
+            var sarc = vanilla.IsEmpty ? new SarcFile() : SarcFile.FromBinary(vanilla.Segment);
             WritePackFile(sarc, relativePath, key, packFile);
         }
 
@@ -39,20 +39,20 @@ public sealed class TkPackFileCollector(TkMerger merger, TkResourceSizeCollector
         }
     }
 
-    private void WritePackFile(Sarc sarc, string relativePath, PackFileEntryKey key,
+    private void WritePackFile(SarcFile sarc, string relativePath, PackFileEntryKey key,
         IEnumerable<PackFileEntry> entries)
     {
         foreach (var entry in entries) {
             var name = entry.Changelog.Canonical;
-            if (sarc.TryGetValue(name, out var entryData) && PackMerger.IsRemovedEntry(entryData)) {
+            if (sarc.TryGet(name, out var existing) && PackMerger.IsRemovedEntry(existing.Data)) {
                 sarc.Remove(name);
                 continue;
             }
-                    
+
             if (entry.IsStreamedData() && entry.Data is MemoryStream msData) {
-                var buffer = msData.GetSpan();
-                sarc[name] = buffer;
-                resourceSizeCollector.Collect(buffer.Count, name, buffer, entry.Changelog.RuntimeResourceSizeOverride);
+                byte[] buffer = msData.ToArray();
+                sarc.Set(name, buffer);
+                resourceSizeCollector.Collect(buffer.Length, name, buffer, entry.Changelog.RuntimeResourceSizeOverride);
                 continue;
             }
 
@@ -66,11 +66,12 @@ public sealed class TkPackFileCollector(TkMerger merger, TkResourceSizeCollector
                 }
             }
 
-            resourceSizeCollector.Collect(sarc[name].Count, name, sarc[name], entry.Changelog.RuntimeResourceSizeOverride);
+            var written = sarc[name]!.Data;
+            resourceSizeCollector.Collect(written.Length, name, written, entry.Changelog.RuntimeResourceSizeOverride);
         }
 
         if (key.ArchiveCanonical == AI_GLOBAL_PACK_CANONICAL) {
-            AiGlobalFileCount = sarc.Count(entry => entry.Key.StartsWith("AI/", StringComparison.Ordinal));
+            AiGlobalFileCount = sarc.Entries.Count(entry => entry.Name.StartsWith("AI/", StringComparison.Ordinal));
         }
 
         using MemoryStream ms = new();
@@ -98,7 +99,7 @@ public sealed class TkPackFileCollector(TkMerger merger, TkResourceSizeCollector
         }
     }
 
-    public void RegisterPackFile(string canonical, Sarc sarc)
+    public void RegisterPackFile(string canonical, SarcFile sarc)
     {
         _trackedArchives[canonical] = sarc;
     }

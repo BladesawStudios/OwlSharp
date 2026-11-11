@@ -1,63 +1,57 @@
 using Revrs.Extensions;
-using SarcLibrary;
+using SarcSharp;
 using OwlSharp.Core.IO.Buffers;
 using OwlSharp.Core.Models;
 using OwlSharp.Merging.PackFile;
 
 namespace OwlSharp.Merging.Mergers;
 
-public sealed class PackMerger(TkPackFileCollector packFileCollector) : ITkMerger
+public sealed class PackMerger(OtPackFileCollector packFileCollector) : ITkMerger
 {
     private const ulong DELETED_MARK = 0x44564D5243534B54;
-    
+
     public MergeResult Merge(TkChangelogEntry entry, RentedBuffers<byte> inputs, ArraySegment<byte> vanillaData, Stream output)
     {
-        // Copy the vanillaData because it will be
-        // disposed later and the Sarc will persist
-        var merged = Sarc.FromBinary(vanillaData.ToArray());
-        var changelogs = new Sarc[inputs.Count];
+        var merged = SarcFile.FromBinary(vanillaData);
+        var changelogs = new SarcFile[inputs.Count];
 
         for (var i = 0; i < inputs.Count; i++) {
             var input = inputs[i];
-            changelogs[i] = Sarc.FromBinary(input.Segment);
+            changelogs[i] = SarcFile.FromBinary(input.Segment);
         }
-        
+
         MergeMany(merged, changelogs);
         packFileCollector.RegisterPackFile(entry.Canonical, merged);
-        
+
         return MergeResult.DelayWrite;
     }
 
     public MergeResult Merge(TkChangelogEntry entry, IEnumerable<ArraySegment<byte>> inputs, ArraySegment<byte> vanillaData, Stream output)
     {
-        // Copy the vanillaData because it will be
-        // disposed later and the Sarc will persist
-        var merged = Sarc.FromBinary(vanillaData.ToArray());
-        MergeMany(merged, inputs.Select(Sarc.FromBinary));
+        var merged = SarcFile.FromBinary(vanillaData);
+        MergeMany(merged, inputs.Select(input => SarcFile.FromBinary(input)));
         packFileCollector.RegisterPackFile(entry.Canonical, merged);
-        
+
         return MergeResult.DelayWrite;
     }
 
     public MergeResult MergeSingle(TkChangelogEntry entry, ArraySegment<byte> input, ArraySegment<byte> @base, Stream output)
     {
-        // Copy the vanillaData because it will be
-        // disposed later and the Sarc will persist
-        var merged = Sarc.FromBinary(@base.ToArray());
-        var changelog = Sarc.FromBinary(input);
+        var merged = SarcFile.FromBinary(@base);
+        var changelog = SarcFile.FromBinary(input);
         MergeSingle(merged, changelog);
         packFileCollector.RegisterPackFile(entry.Canonical, merged);
-        
+
         return MergeResult.DelayWrite;
     }
 
-    private static void MergeMany(Sarc merged, IEnumerable<Sarc> changelogs)
+    private static void MergeMany(SarcFile merged, IEnumerable<SarcFile> changelogs)
     {
         IEnumerable<(string Name, ArraySegment<byte>[] Buffers)> groups = changelogs
-            .SelectMany(x => x)
-            .GroupBy(x => x.Key, x => x.Value)
+            .SelectMany(x => x.Entries)
+            .GroupBy(x => x.Name, x => new ArraySegment<byte>(x.Data))
             .Select(x => (x.Key, x.ToArray()));
-        
+
         foreach (var (name, buffers) in groups) {
             var data = buffers[^1];
             if (IsRemovedEntry(data)) {
@@ -66,9 +60,9 @@ public sealed class PackMerger(TkPackFileCollector packFileCollector) : ITkMerge
         }
     }
 
-    private static void MergeSingle(in Sarc merged, Sarc changelog)
+    private static void MergeSingle(SarcFile merged, SarcFile changelog)
     {
-        foreach (var (name, data) in changelog) {
+        foreach (var (name, data, _) in changelog.Entries) {
             if (IsRemovedEntry(data)) {
                 merged.Remove(name);
             }

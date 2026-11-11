@@ -1,4 +1,4 @@
-using SarcLibrary;
+using SarcSharp;
 using OwlSharp.Core;
 using OwlSharp.Core.IO.Buffers;
 using OwlSharp.Core.Models;
@@ -17,18 +17,18 @@ public class PackChangelogBuilder(ITkRom tk, bool disposeTkRom) : ITkChangelogBu
     public bool Build(string canonical, in TkPath path, in TkChangelogBuilderFlags flags, ArraySegment<byte> srcBuffer,
         ArraySegment<byte> vanillaBuffer, OpenWriteChangelog openWrite, int gameVersion)
     {
-        var sarc = Sarc.FromBinary(srcBuffer);
+        var sarc = SarcFile.FromBinary(srcBuffer);
         
         if (vanillaBuffer.Count == 0) {
             ExtractCustom(sarc, canonical, path, flags, openWrite, gameVersion);
             return true;
         }
         
-        var vanilla = Sarc.FromBinary(vanillaBuffer);
-        Sarc changelog = [];
+        var vanilla = SarcFile.FromBinary(vanillaBuffer);
+        SarcFile changelog = new();
         var hasNestedChanges = false;
 
-        foreach (var (name, data) in sarc) {
+        foreach (var (name, data, _) in sarc.Entries) {
             var nested = new TkPath(
                 name,
                 fileVersion: path.FileVersion,
@@ -44,11 +44,15 @@ public class PackChangelogBuilder(ITkRom tk, bool disposeTkRom) : ITkChangelogBu
             RentedBuffer<byte> vanillaRented = default;
 
             try {
-                if (!vanilla.TryGetValue(name, out var vanillaData)) {
+                ArraySegment<byte> vanillaData;
+
+                if (vanilla.TryGet(name, out var vanillaEntry)) {
+                    vanillaData = vanillaEntry.Data;
+                }
+                else {
                     vanillaRented = _tk.GetVanilla(name, TkFileAttributes.None);
 
                     if (vanillaRented.IsEmpty) {
-                        // Custom file, use entire content
                         goto MoveContent;
                     }
 
@@ -80,7 +84,7 @@ public class PackChangelogBuilder(ITkRom tk, bool disposeTkRom) : ITkChangelogBu
 
             MoveContent:
                 hasNestedChanges = true;
-                changelog[name] = [];
+                changelog.Set(name, []);
                 using var inlineOut = openWrite(nested, name, archiveCanonical: canonical, ChangelogEntryType.Copy);
                 inlineOut.Write(data);
             }
@@ -91,9 +95,9 @@ public class PackChangelogBuilder(ITkRom tk, bool disposeTkRom) : ITkChangelogBu
             }
         }
 
-        foreach (var (key, _) in vanilla) {
-            if (!sarc.ContainsKey(key)) {
-                changelog[key] = _deletedFileMark;
+        foreach (var (key, _, _) in vanilla.Entries) {
+            if (!sarc.Contains(key)) {
+                changelog.Set(key, _deletedFileMark);
             }
         }
 
@@ -102,13 +106,13 @@ public class PackChangelogBuilder(ITkRom tk, bool disposeTkRom) : ITkChangelogBu
         }
 
         using var output = openWrite(path, canonical);
-        changelog.Write(output, changelog.Endianness);
+        changelog.Write(output);
         return true;
     }
 
-    private void ExtractCustom(Sarc sarc, string canonical, in TkPath path, in TkChangelogBuilderFlags flags, OpenWriteChangelog openWrite, int gameVersion)
+    private void ExtractCustom(SarcFile sarc, string canonical, in TkPath path, in TkChangelogBuilderFlags flags, OpenWriteChangelog openWrite, int gameVersion)
     {
-        foreach (var (name, data) in sarc) {
+        foreach (var (name, data, _) in sarc.Entries) {
             var nested = new TkPath(
                 name,
                 fileVersion: path.FileVersion,

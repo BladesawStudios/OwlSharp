@@ -1,4 +1,4 @@
-using SarcLibrary;
+using SarcSharp;
 using OwlSharp.Core;
 
 namespace OwlSharp.Merging.ChangelogBuilders;
@@ -10,20 +10,22 @@ public sealed class SarcChangelogBuilder : Singleton<SarcChangelogBuilder>, ITkC
     public bool Build(string canonical, in TkPath path, in TkChangelogBuilderFlags flags, ArraySegment<byte> srcBuffer,
         ArraySegment<byte> vanillaBuffer, OpenWriteChangelog openWrite, int gameVersion)
     {
-        var vanilla = Sarc.FromBinary(vanillaBuffer);
+        var vanilla = SarcFile.FromBinary(vanillaBuffer);
 
-        Sarc changelog = [];
-        var sarc = Sarc.FromBinary(srcBuffer);
+        SarcFile changelog = new();
+        var sarc = SarcFile.FromBinary(srcBuffer);
 
-        foreach (var (name, data) in sarc) {
+        foreach (var (name, data, _) in sarc.Entries) {
             if (TkChangelogBuilder.SessionRom.IsVanillaAnyVersion($"{canonical}/{name}", data.AsSpan())) {
                 continue;
             }
             
-            if (!vanilla.TryGetValue(name, out var vanillaData)) {
+            if (!vanilla.TryGet(name, out var vanillaEntry)) {
                 // Custom file, use entire content
                 goto MoveContent;
             }
+            
+            var vanillaData = vanillaEntry.Data;
 
             if (data.AsSpan().SequenceEqual(vanillaData)) {
                 // Vanilla file, ignore
@@ -56,7 +58,7 @@ public sealed class SarcChangelogBuilder : Singleton<SarcChangelogBuilder>, ITkC
             continue;
 
         MoveContent:
-            changelog[name] = data;
+            changelog.Set(name, data);
         }
 
         if (changelog.Count == 0) {
@@ -64,7 +66,7 @@ public sealed class SarcChangelogBuilder : Singleton<SarcChangelogBuilder>, ITkC
         }
 
         using var output = openWrite(path, canonical);
-        changelog.Write(output, changelog.Endianness);
+        changelog.Write(output);
         return true;
     }
 

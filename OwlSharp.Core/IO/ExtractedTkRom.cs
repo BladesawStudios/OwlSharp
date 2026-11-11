@@ -9,9 +9,9 @@ public sealed class ExtractedTkRom : ITkRom
 {
     private readonly string _gamePath;
     private readonly TkChecksums _checksums;
-    private readonly TkPackFileLookup _packFileLookup;
+    private readonly OtPackFileLookup _packFileLookup;
 
-    public ExtractedTkRom(string gamePath, TkChecksums checksums, TkPackFileLookup packFileLookup)
+    public ExtractedTkRom(string gamePath, TkChecksums checksums, OtPackFileLookup packFileLookup)
     {
         _gamePath = gamePath;
         _checksums = checksums;

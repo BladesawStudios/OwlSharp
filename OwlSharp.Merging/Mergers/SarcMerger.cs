@@ -1,6 +1,6 @@
 using Revrs;
 using Revrs.Extensions;
-using SarcLibrary;
+using SarcSharp;
 using OwlSharp.Core;
 using OwlSharp.Core.IO.Buffers;
 using OwlSharp.Core.Models;
@@ -16,12 +16,12 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
 
     public MergeResult Merge(TkChangelogEntry entry, RentedBuffers<byte> inputs, ArraySegment<byte> vanillaData, Stream output)
     {
-        var merged = Sarc.FromBinary(vanillaData);
-        var changelogs = new Sarc[inputs.Count];
+        var merged = SarcFile.FromBinary(vanillaData);
+        var changelogs = new SarcFile[inputs.Count];
 
         for (var i = 0; i < inputs.Count; i++) {
             var input = inputs[i];
-            changelogs[i] = Sarc.FromBinary(input.Segment);
+            changelogs[i] = SarcFile.FromBinary(input.Segment);
         }
         
         MergeMany(entry.Canonical, merged, changelogs);
@@ -32,8 +32,8 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
 
     public MergeResult Merge(TkChangelogEntry entry, IEnumerable<ArraySegment<byte>> inputs, ArraySegment<byte> vanillaData, Stream output)
     {
-        var merged = Sarc.FromBinary(vanillaData);
-        MergeMany(entry.Canonical, merged, inputs.Select(Sarc.FromBinary));
+        var merged = SarcFile.FromBinary(vanillaData);
+        MergeMany(entry.Canonical, merged, inputs.Select(input => SarcFile.FromBinary(input)));
         merged.Write(output);
         
         return MergeResult.Default;
@@ -41,19 +41,19 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
 
     public MergeResult MergeSingle(TkChangelogEntry entry, ArraySegment<byte> input, ArraySegment<byte> @base, Stream output)
     {
-        var merged = Sarc.FromBinary(@base);
-        var changelog = Sarc.FromBinary(input);
+        var merged = SarcFile.FromBinary(@base);
+        var changelog = SarcFile.FromBinary(input);
         MergeSingle(entry.Canonical, merged, changelog);
         merged.Write(output);
         
         return MergeResult.Default;
     }
 
-    private void MergeMany(string parentCanonical, Sarc merged, IEnumerable<Sarc> changelogs)
+    private void MergeMany(string parentCanonical, SarcFile merged, IEnumerable<SarcFile> changelogs)
     {
         IEnumerable<(string Name, ArraySegment<byte>[] Buffers)> groups = changelogs
-            .SelectMany(x => x)
-            .GroupBy(x => x.Key, x => x.Value)
+            .SelectMany(x => x.Entries)
+            .GroupBy(x => x.Name, x => new ArraySegment<byte>(x.Data))
             .Select(x => (x.Key, x.ToArray()));
         
         TkChangelogEntry fakeEntry = new(
@@ -72,9 +72,9 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
 
             var last = effective[^1];
             
-            if (!merged.TryGetValue(name, out var vanillaData)) {
+            if (!merged.TryGet(name, out var vanillaEntry)) {
                 if (effective.Length == 1 || _masterMerger.GetMerger(name) is not { } customMerger) {
-                    merged[name] = last;
+                    merged.Set(name, last.ToArray());
                     continue;
                 }
 
@@ -107,7 +107,7 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
             }
 
             if (_masterMerger.GetMerger(name) is not { } merger) {
-                merged[name] = last;
+                merged.Set(name, last.ToArray());
                 continue;
             }
             
@@ -115,17 +115,17 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
             
             if (effective.Length == 1) {
                 using Stream output = merged.OpenWrite(name);
-                merger.MergeSingle(fakeEntry, effective[0], vanillaData, output);
+                merger.MergeSingle(fakeEntry, effective[0], vanillaEntry.Data, output);
                 continue;
             }
 
             using (Stream output = merged.OpenWrite(name)) {
-                merger.Merge(fakeEntry, effective, vanillaData, output);
+                merger.Merge(fakeEntry, effective, vanillaEntry.Data, output);
             }
         }
     }
 
-    private void MergeSingle(string parentCanonical, in Sarc merged, Sarc changelog)
+    private void MergeSingle(string parentCanonical, SarcFile merged, SarcFile changelog)
     {
         TkChangelogEntry fakeEntry = new(
             string.Empty,
@@ -133,27 +133,27 @@ public sealed class SarcMerger(TkMerger masterMerger, TkResourceSizeCollector re
             TkFileAttributes.None,
             zsDictionaryId: -1);
         
-        foreach (var (name, data) in changelog) {
+        foreach (var (name, data, _) in changelog.Entries) {
             // Legacy SARC changelogs may contain deletion marks from older TKMM versions.
             // Ignore them so files added by game updates are not removed.
             if (IsRemovedEntry(data)) {
                 continue;
             }
 
-            if (!merged.TryGetValue(name, out var vanillaData)) {
-                merged[name] = data;
+            if (!merged.TryGet(name, out var vanillaEntry)) {
+                merged.Set(name, data);
                 continue;
             }
 
             if (_masterMerger.GetMerger(name) is not { } merger) {
-                merged[name] = data;
+                merged.Set(name, data);
                 continue;
             }
 
             fakeEntry.Canonical = $"{parentCanonical}/{name}";
 
             using Stream output = merged.OpenWrite(name);
-            merger.MergeSingle(fakeEntry, data, vanillaData, output);
+            merger.MergeSingle(fakeEntry, data, vanillaEntry.Data, output);
         }
     }
 

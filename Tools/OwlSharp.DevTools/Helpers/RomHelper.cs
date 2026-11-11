@@ -9,7 +9,7 @@ namespace OwlSharp.DevTools.Helpers;
 public class RomHelper : ITkRomProvider
 {
     private static readonly TkChecksums _checksums = TkChecksums.FromStream(TkEmbeddedDataSource.GetChecksumsBin());
-    private static readonly TkPackFileLookup _packFileLookup = new(TkEmbeddedDataSource.GetPackFileLookup());
+    private static readonly OtPackFileLookup _packFileLookup = new(TkEmbeddedDataSource.GetPackFileLookup());
     
     public static readonly RomHelper Instance = new();
 

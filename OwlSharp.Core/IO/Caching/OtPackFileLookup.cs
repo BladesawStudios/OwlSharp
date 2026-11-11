@@ -4,73 +4,37 @@ using System.Runtime.InteropServices.Marshalling;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Revrs;
-using SarcLibrary;
+using SarcSharp;
 using OwlSharp.Core.IO.Buffers;
 using ZstdSharp;
 
 namespace OwlSharp.Core.IO.Caching;
 
-public sealed class TkPackFileLookup(Stream pkcache, Stream? precompiled = null) : IDisposable
+public sealed class OtPackFileLookup(Stream pkcache) 
 {
     private static readonly Decompressor _zstd = new();
-    
-    private Stream? _precompiled = precompiled;
+
     private readonly FrozenDictionary<ulong, (string, TkFileAttributes)> _lookup = CreateLookup(pkcache);
 
-    public TkPackFileLookup UsePrecompiledCache(Stream precompiled)
-    {
-        _precompiled = precompiled;
-        return this;
-    }
-
-    /// <summary>
-    /// Returns the pack file data or an empty buffer if the file does not exist
-    /// </summary>
-    /// <param name="canonical"></param>
-    /// <param name="rom"></param>
-    /// <param name="isFoundMissing">true if the entry was recorded to exist, but cannot be found in the game dump</param>
-    /// <returns></returns>
     public RentedBuffer<byte> GetNested(string canonical, ITkRom rom, out bool isFoundMissing)
     {
         isFoundMissing = false;
-        
-        if (GetPackFileName(canonical, out var buffer) is ({ } packFileCanonical, var attributes)) {
-            var sarcBuffer = rom.GetVanilla(packFileCanonical, attributes);
 
-            if (!sarcBuffer.IsEmpty) {
-                RevrsReader reader = new(sarcBuffer.Span);
-                ImmutableSarc sarc = new(ref reader);
-                if (sarc.TryGet(canonical, out var entry)) {
-                    sarcBuffer.Slice(entry.DataStartOffset, entry.DataEndOffset);
-                    return sarcBuffer;
-                }    
-            }
-
-            sarcBuffer.Dispose();
-            isFoundMissing = true;
+        if (!_lookup.TryGetValue(GetKey(canonical), out var packFile)) {
             return default;
         }
 
-        return buffer;
-    }
+        var (packFileCanonical, attributes) = packFile;
+        var sarcBuffer = rom.GetVanilla(packFileCanonical, attributes);
 
-    /// <summary>
-    /// Returns the pack file name or the vanilla data if the entries are precompiled
-    /// </summary>
-    /// <param name="canonical"></param>
-    /// <param name="buffer"></param>
-    /// <returns></returns>
-    private (string, TkFileAttributes)? GetPackFileName(string canonical, out RentedBuffer<byte> buffer)
-    {
-        if (_precompiled != null) {
-            SarcTools.JumpToEntry(_precompiled, canonical, out var size);
-            buffer = RentedBuffer<byte>.Allocate(size);
-            _precompiled.ReadExactly(buffer.Span);
-            return null;
+        if (!sarcBuffer.IsEmpty && SarcFile.TryFind(sarcBuffer.Span, canonical, out Range range)) {
+            sarcBuffer.Slice(range.Start.Value, range.End.Value);
+            return sarcBuffer;
         }
-
-        buffer = default;
-        return _lookup.GetValueOrDefault(GetKey(canonical));
+        
+        sarcBuffer.Dispose();
+        isFoundMissing = true;
+        return default;
     }
     
     private static unsafe FrozenDictionary<ulong, (string, TkFileAttributes)> CreateLookup(Stream pkcache)
@@ -131,10 +95,5 @@ public sealed class TkPackFileLookup(Stream pkcache, Stream? precompiled = null)
     private static ulong GetKey(ushort sectionKey, uint hash)
     {
         return (ulong)hash << 32 | sectionKey;
-    }
-
-    public void Dispose()
-    {
-        _precompiled?.Dispose();
     }
 }
